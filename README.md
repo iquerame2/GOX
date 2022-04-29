@@ -84,8 +84,6 @@ I would like to thank Fetia BANNOUR and Stefania DUMBRAVA with whom I worked to 
 
 I am also grateful to the ENSIIE engineering school in Evry, France, and all its staff for giving me the opportunity to understand SDN, graph databases and to develop GOX.
 
-I would also like to thank the researchers behind the Gavel research paper that laid the foundation for the creation of a graph-based SDN controller. Good job! [Link to Gavel](https://github.com/engbarakat/Gavel)
-
 # Contact
 
 If you have any questions on GOX, how to use it, how to develop GOX applications or if you want to improve GOX, you can send me an e-mail at [alex@danduran.fr](mailto:alex@danduran.fr)
