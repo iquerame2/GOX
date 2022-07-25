@@ -21,32 +21,24 @@ It also has methods to add or remove some basic components of the basic topology
 The language used to query neo4j graph databases is Cypher.
 """
 
-from neo4j import GraphDatabase
+from arango import ArangoClient
 from pox.core import core
+from pyArango.connection import *
 
 log = core.getLogger()
 
 class DatabaseInstance(object):
-
-    def __init__(self, uri, username, password):
-        self.uri = uri
+    
+    def __init__(self, username, password):
         self.username = username
         self.password = password
-        self.driver = None
-        self.session = None
-
-        self.connect()
-        self.reset()
-
+        
         log.info("DatabaseInstance launched")
-    
+        
     def connect(self):
-        """
-        Establishes the connection with the neo4j database thanks to the scheme,
-        the ip (usually localhost) and the port on which the database is listening
-        """
-        self.driver = GraphDatabase.driver(self.uri, auth=(self.username, self.password))
-        self.session = self.driver.session()
+        conn = Connection(username=self.username, password=self.password)
+        db = conn["_system"]
+
 
     def reset(self):
         """
