@@ -21,42 +21,95 @@ It also has methods to add or remove some basic components of the basic topology
 The language used to query neo4j graph databases is Cypher.
 """
 
-from arango import ArangoClient
+from neo4j import GraphDatabase
 from pox.core import core
-from pyArango.connection import *
 
 log = core.getLogger()
 
 class DatabaseInstance(object):
-    
-    def __init__(self, username, password):
+
+    def __init__(self, uri, username, password):
+        self.uri = uri
         self.username = username
         self.password = password
-        
+        self.driver = None
+        self.session = None
+
+        self.connect()
+        self.reset()
+
         log.info("DatabaseInstance launched")
-        
+    
     def connect(self):
-        conn = Connection(username=self.username, password=self.password)
-        db = conn["_system"]
+        """
+        Establishes the connection with the neo4j database thanks to the scheme,
+        the ip (usually localhost) and the port on which the database is listening
+        """
+        self.driver = GraphDatabase.driver(self.uri, auth=(self.username, self.password))
+        self.session = self.driver.session()
 
-
-    def reset(self):
+    def remove(self, name):
         """
         docstring
         """
-        query = '''MATCH (n) DETACH DELETE n'''
+        query = '''CALL apoc.trigger.remove(name)'''
+        self.session.run(query)
+        
+    def removeAll(self):
+        """
+        docstring
+        """
+        query = '''CALL apoc.trigger.removeAll()'''
         self.session.run(query)
 
-    def addHost(self, mac, ip, name=""):
-        query = '''CREATE (:Host {{name: "{host_name}", ip: "{host_ip}", mac: "{host_mac}"}})'''.format(host_name=name, host_ip=ip, host_mac=mac)
-        self.session.run(query)
-
-    def delHost(self, mac):
+    def addProperty(self, nameprop):
         query = '''
-                MATCH (h:Host {{mac: "{host_mac}"}})
-                DETACH DELETE h
-                '''.format(host_mac=mac)
+                CALL apoc.trigger.add('setAllConnectedNodes','UNWIND apoc.trigger.propertiesByKey({assignedNodeProperties},"{surname}") as prop
+                WITH prop.node as n
+                MATCH(n)-[]-(a)
+                SET a.surname = n.surname', {phase:'after'})
+                '''.format(surname=nameprop)
         self.session.run(query)
+        
+    def addLabel(self, oldlabel, newlabel):
+        query = ''' 
+                CALL apoc.trigger.add('updateLabels',"UNWIND apoc.trigger.nodesByLabel({removedLabels},'{oldlabelname}') AS node
+                MATCH (n:"{oldlabelname}")
+                REMOVE n:"{oldlabelname}" SET n:"{newlabelname}" SET node:"{newlabelname}", {phase:'before'})
+                '''.format(oldlabelname=oldlabel, newlabelname=newlabel)
+        self.session.run(query)
+
+    def connectNodeHost(self, mac, list):
+        query = '''
+                CALL apoc.trigger.add('create-rel-new-node',"UNWIND {createdNodes} AS h
+                MATCH (h:Host {{mac: "{host_mac}"}})
+                WHERE h:Host AND h.mac IN "{list_mac}"
+                CREATE (n)-[link:Connected_to]->(m)", {phase:'before'})
+                '''.format(host_mac=mac, list_mac=list)
+        self.session.run(query)
+        
+    def connectNodeSwitch(self, name, list):
+        query = '''
+                CALL apoc.trigger.add('create-rel-new-node',"UNWIND {createdNodes} AS s
+                MATCH (s:Switch {{name: "{switch_name}"}})
+                WHERE s:Switch AND s.name IN "{list_name}"
+                CREATE (n)-[link:Connected_to]->(m)", {phase:'before'})
+                '''.format(switch_name=name, list_name=list)
+        self.session.run(query)
+        
+    def pauseTrigger(self, name):
+        query ='''
+                CALL apoc.trigger.pause("{trigger_name}")
+                '''.format(trigger_name=name)
+        self.session.run(query)
+        
+    def resumePauseTrigger(self, name):
+        query ='''
+                CALL apoc.trigger.resume("{trigger_name}")
+                '''.format(trigger_name=name)
+        self.session.run(query)
+    
+    
 
     def getHostInfo(self, mac):
         """
